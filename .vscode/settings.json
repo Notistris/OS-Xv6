@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "user.h": "c",
+        "types.h": "c"
+    },
+    "files.exclude": {},
+    "C_Cpp.errorSquiggles": "disabled"
+}
