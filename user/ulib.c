@@ -84,6 +84,43 @@ int atoi(const char* s) {
     return n;
 }
 
+char* itoa(const int n) {
+    static char buffer[12];
+    int temp = n;
+    char* s = buffer;
+
+    if (n == 0) {
+        *s++ = '0';
+        *s = '\0';
+        return buffer;
+    }
+
+    if (n < 0) {
+        temp = -temp;
+    }
+
+    while (temp != 0) {
+        *s++ = temp % 10 + '0';
+        temp /= 10;
+    }
+
+    if (n < 0)
+        *s++ = '-';
+
+    *s = '\0';
+
+    // revert string
+    char* start = buffer;
+    char* end = s - 1;
+    while (start < end) {
+        char tmp = *start;
+        *start++ = *end;
+        *end-- = tmp;
+    }
+
+    return buffer;
+}
+
 void* memmove(void* vdst, const void* vsrc, int n) {
     char* dst;
     const char* src;
