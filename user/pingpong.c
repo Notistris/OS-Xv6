@@ -2,75 +2,74 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-// Hàm in ra màn hình
-void writeConsole(int pid, char* message) {
-    char* pidString = itoa(pid);  // Chuyển pid từ số sang chuỗi để in
+// Chuyển số nguyên sang chuỗi
+void intToStr(int num, char *buf) {
+    int i = 0;
+    if (num == 0) {
+        buf[i++] = '0';
+    } else {
+        int n = num;
+        char temp[16];
+        int j = 0;
+        while (n > 0) {
+            temp[j++] = '0' + n % 10;
+            n /= 10;
+        }
+        while (j > 0)
+            buf[i++] = temp[--j];
+    }
+    buf[i] = 0;
+}
 
-    write(1, pidString, sizeof(pidString));
-    write(1, ": received ", 11);
-    write(1, message, sizeof(message));
+// Hàm in ra màn hình: pid: message
+void writeConsole(int pid, char* message) {
+    char pidStr[16];
+    intToStr(pid, pidStr);
+
+    write(1, pidStr, strlen(pidStr));
+    write(1, ": ", 2);
+    write(1, message, strlen(message));
     write(1, "\n", 1);
 }
 
 void pingpong(void) {
-    // Tạo 2 pipe cho tiến trình cha và con chứa:
-    // 0: đầu đọc (read)
-    // 1: đầu ghi (write)
-    int parentPipe[2];
-    int childPipe[2];
-    pipe(parentPipe);  // pipe cha (cha ghi cho con đọc)
-    pipe(childPipe);   // pipe con (con ghi cho cha đọc)
+    int parentPipe[2], childPipe[2];
+    pipe(parentPipe);
+    pipe(childPipe);
 
-    // Fork tiến trình để tạo tiến trình con
     int pid = fork();
-    // Sau khi fork thì dưới câu lệnh fork đang có 2 tiến trình chạy song song với nhau
-    // nếu pid = 0 thì tiến trình đang chạy là tiến trình con
-    // nếu pid > 0 thì tiến trình đang chạy là tiến trình cha
-    // nếu pid < 0 thì không tạo được tiến trình con (vẫn đang chạy ở tiến trình gốc)
+    if (pid == 0) { // con
+        close(parentPipe[1]);  // con đọc từ cha
+        close(childPipe[0]);   // con ghi cho cha
 
-    // Tiến trình con sẽ đợi nhận một message đến từ tiến trình cha thông qua pipe
-    if (pid == 0) {
         char ping[1];
-        int childPID = getpid();  // lấy pid của tiến trình con
-        // Vì tiến trình con chỉ đọc của cha và chỉ ghi của con nên:
-        close(parentPipe[1]);  // Đóng đầu ghi của cha
-        close(childPipe[0]);   // Đóng đầu đọc của con
-
-        // Đợi cha bắn 1 byte (ping) cho con
         if (read(parentPipe[0], ping, 1)) {
-            writeConsole(childPID, "ping");
-
-            // Tiến hành gửi lại 1 byte (pong) cho tiến trình cha
+            writeConsole(getpid(), "ping");
             write(childPipe[1], "b", 1);
-
-            close(parentPipe[0]);
-            close(childPipe[1]);  // Đóng các đầu còn lại sau khi đã thực hiện xong
         }
 
-        exit(1);
-    }
+        close(parentPipe[0]);
+        close(childPipe[1]);
+        exit(0);
+    } else if (pid > 0) { // cha
+        close(parentPipe[0]);  // cha ghi cho con
+        close(childPipe[1]);   // cha đọc từ con
 
-    // Tiến trình cha sẽ bắn một message đến tiến trình con thông qua pipe
-    if (pid > 0) {
-        char pong[1];
-        int parentPID = getpid();  // lấy pid của tiến trình cha
-        // Tiến trình cha chỉ đọc của con và chỉ ghi của cha nên:
-        close(parentPipe[0]);  // Đóng đầu đọc của cha
-        close(childPipe[1]);   // Đóng đầu ghi của con
-
-        // Bắt đầu: gửi 1 byte (ping) cho con
         write(parentPipe[1], "b", 1);
 
-        // Đợi con bắn lại 1 byte trả lời (pong)
+        char pong[1];
         if (read(childPipe[0], pong, 1)) {
-            writeConsole(parentPID, "pong");
-
-            close(parentPipe[1]);
-            close(childPipe[0]);  // Đóng các đầu còn lại sau khi đã thực hiện xong
+            writeConsole(getpid(), "pong");
         }
 
-        wait(0);  // đợi tiến trình con kết thúc để tắt tiến trình cha
+        close(parentPipe[1]);
+        close(childPipe[0]);
+
+        wait(0);
         exit(0);
+    } else {
+        // lỗi fork
+        exit(1);
     }
 }
 
